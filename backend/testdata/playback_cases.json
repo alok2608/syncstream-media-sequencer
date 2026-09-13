@@ -1,0 +1,125 @@
+{
+  "description": "Shared playback fixtures. Consumed by backend/internal/playback/playback_test.go and frontend/src/utils/playback.test.js so the Go and JavaScript playback clocks are provably identical. `expect: null` means the playlist has no playable item and the window renders its fallback state.",
+  "cycleMillis": 18000000,
+  "cases": [
+    {
+      "name": "start of cycle selects the first item",
+      "items": [{"playlistItemId": 1, "mediaId": 101, "durationMillis": 10000}, {"playlistItemId": 2, "mediaId": 102, "durationMillis": 20000}, {"playlistItemId": 3, "mediaId": 103, "durationMillis": 30000}],
+      "anchorMillis": 0,
+      "nowMillis": 0,
+      "expect": {"index": 0, "playlistItemId": 1, "mediaId": 101, "cycleIndex": 0, "elapsedInCycleMillis": 0, "loopIteration": 0, "elapsedInItemMillis": 0, "remainingInItemMillis": 10000, "truncatedByCycle": false}
+    },
+    {
+      "name": "last millisecond of the first item",
+      "items": [{"playlistItemId": 1, "mediaId": 101, "durationMillis": 10000}, {"playlistItemId": 2, "mediaId": 102, "durationMillis": 20000}, {"playlistItemId": 3, "mediaId": 103, "durationMillis": 30000}],
+      "anchorMillis": 0,
+      "nowMillis": 9999,
+      "expect": {"index": 0, "playlistItemId": 1, "mediaId": 101, "cycleIndex": 0, "elapsedInCycleMillis": 9999, "loopIteration": 0, "elapsedInItemMillis": 9999, "remainingInItemMillis": 1, "truncatedByCycle": false}
+    },
+    {
+      "name": "exact media boundary advances to the next item",
+      "items": [{"playlistItemId": 1, "mediaId": 101, "durationMillis": 10000}, {"playlistItemId": 2, "mediaId": 102, "durationMillis": 20000}, {"playlistItemId": 3, "mediaId": 103, "durationMillis": 30000}],
+      "anchorMillis": 0,
+      "nowMillis": 10000,
+      "expect": {"index": 1, "playlistItemId": 2, "mediaId": 102, "cycleIndex": 0, "elapsedInCycleMillis": 10000, "loopIteration": 0, "elapsedInItemMillis": 0, "remainingInItemMillis": 20000, "truncatedByCycle": false}
+    },
+    {
+      "name": "exact boundary into the final item",
+      "items": [{"playlistItemId": 1, "mediaId": 101, "durationMillis": 10000}, {"playlistItemId": 2, "mediaId": 102, "durationMillis": 20000}, {"playlistItemId": 3, "mediaId": 103, "durationMillis": 30000}],
+      "anchorMillis": 0,
+      "nowMillis": 30000,
+      "expect": {"index": 2, "playlistItemId": 3, "mediaId": 103, "cycleIndex": 0, "elapsedInCycleMillis": 30000, "loopIteration": 0, "elapsedInItemMillis": 0, "remainingInItemMillis": 30000, "truncatedByCycle": false}
+    },
+    {
+      "name": "playlist loops immediately after the last item with no gap",
+      "items": [{"playlistItemId": 1, "mediaId": 101, "durationMillis": 10000}, {"playlistItemId": 2, "mediaId": 102, "durationMillis": 20000}, {"playlistItemId": 3, "mediaId": 103, "durationMillis": 30000}],
+      "anchorMillis": 0,
+      "nowMillis": 60000,
+      "expect": {"index": 0, "playlistItemId": 1, "mediaId": 101, "cycleIndex": 0, "elapsedInCycleMillis": 60000, "loopIteration": 1, "elapsedInItemMillis": 0, "remainingInItemMillis": 10000, "truncatedByCycle": false}
+    },
+    {
+      "name": "mid cycle after many loops still plays real media, never blank filler",
+      "items": [{"playlistItemId": 1, "mediaId": 101, "durationMillis": 10000}, {"playlistItemId": 2, "mediaId": 102, "durationMillis": 20000}, {"playlistItemId": 3, "mediaId": 103, "durationMillis": 30000}],
+      "anchorMillis": 0,
+      "nowMillis": 9000000,
+      "expect": {"index": 0, "playlistItemId": 1, "mediaId": 101, "cycleIndex": 0, "elapsedInCycleMillis": 9000000, "loopIteration": 150, "elapsedInItemMillis": 0, "remainingInItemMillis": 10000, "truncatedByCycle": false}
+    },
+    {
+      "name": "final millisecond of the 5 hour cycle",
+      "items": [{"playlistItemId": 1, "mediaId": 101, "durationMillis": 10000}, {"playlistItemId": 2, "mediaId": 102, "durationMillis": 20000}, {"playlistItemId": 3, "mediaId": 103, "durationMillis": 30000}],
+      "anchorMillis": 0,
+      "nowMillis": 17999999,
+      "expect": {"index": 2, "playlistItemId": 3, "mediaId": 103, "cycleIndex": 0, "elapsedInCycleMillis": 17999999, "loopIteration": 299, "elapsedInItemMillis": 29999, "remainingInItemMillis": 1, "truncatedByCycle": false}
+    },
+    {
+      "name": "5 hour boundary re-anchors playback to playlist position 0",
+      "items": [{"playlistItemId": 1, "mediaId": 101, "durationMillis": 10000}, {"playlistItemId": 2, "mediaId": 102, "durationMillis": 20000}, {"playlistItemId": 3, "mediaId": 103, "durationMillis": 30000}],
+      "anchorMillis": 0,
+      "nowMillis": 18000000,
+      "expect": {"index": 0, "playlistItemId": 1, "mediaId": 101, "cycleIndex": 1, "elapsedInCycleMillis": 0, "loopIteration": 0, "elapsedInItemMillis": 0, "remainingInItemMillis": 10000, "truncatedByCycle": false}
+    },
+    {
+      "name": "third cycle resolves the same way as the first",
+      "items": [{"playlistItemId": 1, "mediaId": 101, "durationMillis": 10000}, {"playlistItemId": 2, "mediaId": 102, "durationMillis": 20000}, {"playlistItemId": 3, "mediaId": 103, "durationMillis": 30000}],
+      "anchorMillis": 0,
+      "nowMillis": 36045000,
+      "expect": {"index": 2, "playlistItemId": 3, "mediaId": 103, "cycleIndex": 2, "elapsedInCycleMillis": 45000, "loopIteration": 0, "elapsedInItemMillis": 15000, "remainingInItemMillis": 15000, "truncatedByCycle": false}
+    },
+    {
+      "name": "playlist that does not divide the cycle is truncated at the boundary",
+      "items": [{"playlistItemId": 7, "mediaId": 701, "durationMillis": 7000}],
+      "anchorMillis": 0,
+      "nowMillis": 17999000,
+      "expect": {"index": 0, "playlistItemId": 7, "mediaId": 701, "cycleIndex": 0, "elapsedInCycleMillis": 17999000, "loopIteration": 2571, "elapsedInItemMillis": 2000, "remainingInItemMillis": 1000, "truncatedByCycle": true}
+    },
+    {
+      "name": "time before the anchor falls into the previous cycle",
+      "items": [{"playlistItemId": 1, "mediaId": 101, "durationMillis": 10000}, {"playlistItemId": 2, "mediaId": 102, "durationMillis": 20000}, {"playlistItemId": 3, "mediaId": 103, "durationMillis": 30000}],
+      "anchorMillis": 18000000,
+      "nowMillis": 17999000,
+      "expect": {"index": 2, "playlistItemId": 3, "mediaId": 103, "cycleIndex": -1, "elapsedInCycleMillis": 17999000, "loopIteration": 299, "elapsedInItemMillis": 29000, "remainingInItemMillis": 1000, "truncatedByCycle": false}
+    },
+    {
+      "name": "single item exactly the length of the cycle",
+      "items": [{"playlistItemId": 5, "mediaId": 105, "durationMillis": 18000000}],
+      "anchorMillis": 0,
+      "nowMillis": 17999999,
+      "expect": {"index": 0, "playlistItemId": 5, "mediaId": 105, "cycleIndex": 0, "elapsedInCycleMillis": 17999999, "loopIteration": 0, "elapsedInItemMillis": 17999999, "remainingInItemMillis": 1, "truncatedByCycle": false}
+    },
+    {
+      "name": "playlist longer than the cycle can never finish an item",
+      "items": [{"playlistItemId": 6, "mediaId": 106, "durationMillis": 20000000}],
+      "anchorMillis": 0,
+      "nowMillis": 0,
+      "expect": {"index": 0, "playlistItemId": 6, "mediaId": 106, "cycleIndex": 0, "elapsedInCycleMillis": 0, "loopIteration": 0, "elapsedInItemMillis": 0, "remainingInItemMillis": 18000000, "truncatedByCycle": true}
+    },
+    {
+      "name": "explicitly configured blank item is selected like any other media",
+      "items": [{"playlistItemId": 8, "mediaId": 801, "durationMillis": 8000}, {"playlistItemId": 9, "mediaId": 802, "durationMillis": 5000}, {"playlistItemId": 10, "mediaId": 803, "durationMillis": 20000}],
+      "anchorMillis": 0,
+      "nowMillis": 10000,
+      "expect": {"index": 1, "playlistItemId": 9, "mediaId": 802, "cycleIndex": 0, "elapsedInCycleMillis": 10000, "loopIteration": 0, "elapsedInItemMillis": 2000, "remainingInItemMillis": 3000, "truncatedByCycle": false}
+    },
+    {
+      "name": "items with a non positive duration are skipped",
+      "items": [{"playlistItemId": 1, "mediaId": 101, "durationMillis": 10000}, {"playlistItemId": 9, "mediaId": 109, "durationMillis": 0}, {"playlistItemId": 3, "mediaId": 103, "durationMillis": 20000}],
+      "anchorMillis": 0,
+      "nowMillis": 15000,
+      "expect": {"index": 1, "playlistItemId": 3, "mediaId": 103, "cycleIndex": 0, "elapsedInCycleMillis": 15000, "loopIteration": 0, "elapsedInItemMillis": 5000, "remainingInItemMillis": 15000, "truncatedByCycle": false}
+    },
+    {
+      "name": "empty playlist has no playable item",
+      "items": [],
+      "anchorMillis": 0,
+      "nowMillis": 12345,
+      "expect": null
+    },
+    {
+      "name": "playlist of only zero duration items has no playable item",
+      "items": [{"playlistItemId": 1, "mediaId": 101, "durationMillis": 0}, {"playlistItemId": 2, "mediaId": 102, "durationMillis": -5000}],
+      "anchorMillis": 0,
+      "nowMillis": 12345,
+      "expect": null
+    }
+  ]
+}
