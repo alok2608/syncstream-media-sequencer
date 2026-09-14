@@ -36,7 +36,14 @@ type Config struct {
 }
 
 // Load reads configuration from the environment and validates it.
+//
+// A local .env file, if present, is loaded first as a developer convenience;
+// real environment variables always take precedence over it.
 func Load() (Config, error) {
+	if err := LoadEnvFile(DefaultEnvFile); err != nil {
+		return Config{}, fmt.Errorf("read %s: %w", DefaultEnvFile, err)
+	}
+
 	cfg := Config{
 		Port:                 env("PORT", "8080"),
 		DatabaseURL:          strings.TrimSpace(os.Getenv("DATABASE_URL")),
