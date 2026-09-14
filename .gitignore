@@ -19,6 +19,3 @@ Thumbs.db
 # Editors
 .vscode/
 .idea/
-
-# Documentation maintained separately
-README.md
