@@ -40,7 +40,7 @@ func Load() (Config, error) {
 	cfg := Config{
 		Port:                 env("PORT", "8080"),
 		DatabaseURL:          strings.TrimSpace(os.Getenv("DATABASE_URL")),
-		AllowedOrigins:       parseOrigins(env("FRONTEND_URL", "http://localhost:5173,http://localhost:4173")),
+		AllowedOrigins:       parseOrigins(env("FRONTEND_URL", "http://localhost:5173")),
 		SyncLeadTime:         time.Duration(envInt("SYNC_LEAD_TIME_MS", 1000)) * time.Millisecond,
 		AllowLoopbackOrigins: envBool("ALLOW_LOOPBACK_ORIGINS", true),
 		AutoSeed:             envBool("AUTO_SEED", true),

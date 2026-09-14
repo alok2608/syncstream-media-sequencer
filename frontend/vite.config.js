@@ -11,10 +11,6 @@ export default defineConfig({
     // Better to be told the port is busy than to debug a phantom outage.
     strictPort: true,
   },
-  preview: {
-    port: 4173,
-    strictPort: true,
-  },
   test: {
     // The playback tests are pure functions; no DOM environment is needed.
     environment: 'node',

@@ -24,8 +24,8 @@ func TestLoadDefaults(t *testing.T) {
 	if cfg.SyncLeadTime != time.Second {
 		t.Errorf("sync lead = %s, want 1s", cfg.SyncLeadTime)
 	}
-	if len(cfg.AllowedOrigins) != 2 {
-		t.Errorf("expected 2 default origins, got %v", cfg.AllowedOrigins)
+	if len(cfg.AllowedOrigins) != 1 || cfg.AllowedOrigins[0] != "http://localhost:5173" {
+		t.Errorf("expected the single dev-server origin, got %v", cfg.AllowedOrigins)
 	}
 }
 
