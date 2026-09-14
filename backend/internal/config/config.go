@@ -5,6 +5,7 @@ package config
 import (
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -21,6 +22,13 @@ type Config struct {
 	// SyncLeadTime is how far in the future a sync is scheduled so that every
 	// connected client can receive, preload and align before playback starts.
 	SyncLeadTime time.Duration
+	// AllowLoopbackOrigins accepts any http://localhost / 127.0.0.1 / [::1]
+	// origin regardless of port. Vite silently falls back to 5174, 5175 and so
+	// on when its default port is busy, which otherwise looks exactly like a
+	// broken backend: CORS blocks the reads and the WebSocket upgrade is
+	// refused. Set ALLOW_LOOPBACK_ORIGINS=false to require an exact match.
+	AllowLoopbackOrigins bool
+
 	// AutoSeed seeds demo data on boot when the database has no windows yet.
 	AutoSeed bool
 	// LogRequests toggles HTTP access logging.
@@ -30,12 +38,13 @@ type Config struct {
 // Load reads configuration from the environment and validates it.
 func Load() (Config, error) {
 	cfg := Config{
-		Port:           env("PORT", "8080"),
-		DatabaseURL:    strings.TrimSpace(os.Getenv("DATABASE_URL")),
-		AllowedOrigins: parseOrigins(env("FRONTEND_URL", "http://localhost:5173,http://localhost:4173")),
-		SyncLeadTime:   time.Duration(envInt("SYNC_LEAD_TIME_MS", 1000)) * time.Millisecond,
-		AutoSeed:       envBool("AUTO_SEED", true),
-		LogRequests:    envBool("LOG_REQUESTS", true),
+		Port:                 env("PORT", "8080"),
+		DatabaseURL:          strings.TrimSpace(os.Getenv("DATABASE_URL")),
+		AllowedOrigins:       parseOrigins(env("FRONTEND_URL", "http://localhost:5173,http://localhost:4173")),
+		SyncLeadTime:         time.Duration(envInt("SYNC_LEAD_TIME_MS", 1000)) * time.Millisecond,
+		AllowLoopbackOrigins: envBool("ALLOW_LOOPBACK_ORIGINS", true),
+		AutoSeed:             envBool("AUTO_SEED", true),
+		LogRequests:          envBool("LOG_REQUESTS", true),
 	}
 
 	if cfg.DatabaseURL == "" {
@@ -66,10 +75,28 @@ func (c Config) OriginAllowed(origin string) bool {
 		return true
 	}
 	origin = strings.TrimRight(strings.TrimSpace(origin), "/")
+	if origin == "" {
+		return false
+	}
 	for _, allowed := range c.AllowedOrigins {
 		if strings.EqualFold(strings.TrimRight(allowed, "/"), origin) {
 			return true
 		}
+	}
+	return c.AllowLoopbackOrigins && isLoopbackOrigin(origin)
+}
+
+// isLoopbackOrigin reports whether an origin points at this machine, on any
+// port. Only http is accepted: an https loopback origin is not something a
+// local dev server produces.
+func isLoopbackOrigin(origin string) bool {
+	u, err := url.Parse(origin)
+	if err != nil || u.Scheme != "http" {
+		return false
+	}
+	switch strings.ToLower(u.Hostname()) {
+	case "localhost", "127.0.0.1", "::1":
+		return true
 	}
 	return false
 }
