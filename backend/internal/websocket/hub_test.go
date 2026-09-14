@@ -6,7 +6,9 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"runtime"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -212,4 +214,103 @@ func waitForClients(t *testing.T, hub *Hub, want int) {
 		time.Sleep(10 * time.Millisecond)
 	}
 	t.Fatalf("hub has %d clients, want %d", hub.ClientCount(), want)
+}
+
+// TestClientGoroutinesExitAfterHubClose guards a leak that only shows up at
+// shutdown: once Run() has returned, nothing drains the unregister channel, so
+// a readPump finishing afterwards would block on it forever.
+func TestClientGoroutinesExitAfterHubClose(t *testing.T) {
+	before := runtime.NumGoroutine()
+
+	hub := NewHub(slog.New(slog.NewTextHandler(io.Discard, nil)), func() any { return nil })
+	go hub.Run()
+
+	srv := httptest.NewServer(hub.Handler(func(string) bool { return true }))
+	defer srv.Close()
+
+	conns := make([]*gorilla.Conn, 0, 4)
+	for i := 0; i < 4; i++ {
+		conn, _, err := gorilla.DefaultDialer.Dial("ws"+strings.TrimPrefix(srv.URL, "http"), nil)
+		if err != nil {
+			t.Fatalf("dial %d: %v", i, err)
+		}
+		conns = append(conns, conn)
+	}
+	waitForClients(t, hub, 4)
+
+	// Stop the hub first, then drop the clients: this is the exact ordering
+	// that used to strand every readPump on its unregister send.
+	hub.Close()
+	for _, conn := range conns {
+		_ = conn.Close()
+	}
+
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		if runtime.NumGoroutine() <= before+2 {
+			return
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	t.Fatalf("goroutines leaked after hub close: %d before, %d after", before, runtime.NumGoroutine())
+}
+
+// TestConcurrentConnectBroadcastAndClose hammers the three goroutines that can
+// queue a message for a client - the hub, the HTTP handler's greeting, and a
+// client's own PONG - while the hub is being shut down underneath them.
+//
+// This is the shape that used to panic: the hub closed client.send while those
+// senders were still using it.
+func TestConcurrentConnectBroadcastAndClose(t *testing.T) {
+	for attempt := 0; attempt < 20; attempt++ {
+		hub := NewHub(slog.New(slog.NewTextHandler(io.Discard, nil)), func() any {
+			return map[string]string{"greeting": "hello"}
+		})
+		go hub.Run()
+
+		srv := httptest.NewServer(hub.Handler(func(string) bool { return true }))
+		url := "ws" + strings.TrimPrefix(srv.URL, "http")
+
+		var wg sync.WaitGroup
+
+		// Clients connecting (each triggers a greeting) and pinging.
+		for i := 0; i < 6; i++ {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				conn, _, err := gorilla.DefaultDialer.Dial(url, nil)
+				if err != nil {
+					return // The hub may already be closing; that is the point.
+				}
+				defer conn.Close()
+				for j := 0; j < 5; j++ {
+					if err := conn.WriteJSON(map[string]any{"type": "PING", "clientTime": 1}); err != nil {
+						return
+					}
+				}
+			}()
+		}
+
+		// Broadcasts racing with all of the above.
+		for i := 0; i < 4; i++ {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				for j := 0; j < 10; j++ {
+					hub.Publish(EventPlaylistUpdated, map[string]int{"n": j})
+				}
+			}()
+		}
+
+		// And the shutdown, landing at an unpredictable point in the middle.
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			time.Sleep(time.Duration(attempt%5) * time.Millisecond)
+			hub.Close()
+		}()
+
+		wg.Wait()
+		srv.Close()
+	}
 }

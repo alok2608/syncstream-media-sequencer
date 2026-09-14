@@ -169,5 +169,7 @@ export function useSequencerState(clock) {
     };
   }, [socketOpen, refreshAndTrackReachability]);
 
-  return { ...state, socketStatus, refresh };
+  // The reachability-tracking variant is what callers get: it never rejects,
+  // so a UI callback cannot turn a failed refresh into an unhandled rejection.
+  return { ...state, socketStatus, refresh: refreshAndTrackReachability };
 }

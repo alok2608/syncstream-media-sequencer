@@ -48,29 +48,37 @@ export function PlaylistManager({ windows, media, onChanged }) {
 
   const urlRequired = source === 'new' && form.type !== 'blank';
 
-  /** Runs a mutation, surfacing success or the backend's error message. */
+  /**
+   * Runs a mutation, surfacing success or the backend's error message.
+   * Returns whether it succeeded, so callers only clear their inputs when the
+   * change actually went through - a rejected form should keep what was typed.
+   */
   const runAction = async (action, successMessage) => {
     setBusy(true);
     setFeedback(null);
     try {
       await action();
       setFeedback({ tone: 'success', text: successMessage });
-      onChanged?.();
+      await onChanged?.();
+      return true;
     } catch (error) {
       setFeedback({ tone: 'error', text: error.detail ?? error.message });
+      return false;
     } finally {
       setBusy(false);
     }
   };
 
-  const handleCreateWindow = (event) => {
+  const handleCreateWindow = async (event) => {
     event.preventDefault();
     const name = newWindowName.trim();
     if (!name) return;
-    runAction(() => api.createWindow(name), `Created "${name}".`).then(() => setNewWindowName(''));
+    if (await runAction(() => api.createWindow(name), `Created "${name}".`)) {
+      setNewWindowName('');
+    }
   };
 
-  const handleAddMedia = (event) => {
+  const handleAddMedia = async (event) => {
     event.preventDefault();
     if (!selectedWindow) return;
 
@@ -86,12 +94,11 @@ export function PlaylistManager({ windows, media, onChanged }) {
             },
           };
 
-    runAction(
+    const added = await runAction(
       () => api.addPlaylistItem(selectedWindow.id, payload),
       `Added to ${selectedWindow.name}.`,
-    ).then(() => {
-      if (source === 'new') setForm(EMPTY_FORM);
-    });
+    );
+    if (added && source === 'new') setForm(EMPTY_FORM);
   };
 
   const handleMove = (item, direction) => {

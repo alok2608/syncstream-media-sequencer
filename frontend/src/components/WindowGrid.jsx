@@ -5,10 +5,19 @@ import { WindowCard } from './WindowCard.jsx';
  *
  * @param {{
  *   windows: Array, serverNowMillis: number,
- *   syncMedia: object|null, isSyncActive: boolean, loading: boolean, unreachable: boolean,
+ *   syncMedia: object|null, syncElapsedMillis: number,
+ *   isSyncActive: boolean, loading: boolean, unreachable: boolean,
  * }} props
  */
-export function WindowGrid({ windows, serverNowMillis, syncMedia, isSyncActive, loading, unreachable }) {
+export function WindowGrid({
+  windows,
+  serverNowMillis,
+  syncMedia,
+  syncElapsedMillis,
+  isSyncActive,
+  loading,
+  unreachable,
+}) {
   if (loading) {
     return (
       <div className="grid-placeholder">
@@ -43,6 +52,7 @@ export function WindowGrid({ windows, serverNowMillis, syncMedia, isSyncActive, 
           window={window}
           serverNowMillis={serverNowMillis}
           syncMedia={syncMedia}
+          syncElapsedMillis={syncElapsedMillis}
           isSyncActive={isSyncActive}
         />
       ))}

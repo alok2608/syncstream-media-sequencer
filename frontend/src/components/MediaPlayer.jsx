@@ -2,6 +2,13 @@ import { useEffect, useRef, useState } from 'react';
 
 import { resolveMediaUrl } from '../api/client.js';
 
+/** How far a video may drift from the cycle clock before it is re-seeked. */
+const DRIFT_TOLERANCE_SECONDS = 1;
+
+/** How often drift is re-checked. Frequent enough to be invisible, rare enough
+ *  not to disturb playback. */
+const DRIFT_CHECK_INTERVAL_MILLIS = 2000;
+
 /**
  * Renders a single media item at a given offset into its playback.
  *
@@ -15,6 +22,11 @@ import { resolveMediaUrl } from '../api/client.js';
  * offset whenever a new occurrence begins, so a refresh mid-video resumes in
  * the right place instead of restarting.
  *
+ * That alignment is also re-checked periodically. A `<video>` free-runs once it
+ * starts, and anything that stalls it - a backgrounded tab, a decode hiccup, a
+ * slow network - becomes permanent drift against the cycle clock. Re-checking
+ * turns those into a one-off correction instead.
+ *
  * @param {{
  *   media: object|null,
  *   elapsedInItemMillis: number,
@@ -26,6 +38,11 @@ export function MediaPlayer({ media, elapsedInItemMillis, occurrenceKey, muted =
   const [failed, setFailed] = useState(false);
   const videoRef = useRef(null);
 
+  // The latest offset, readable from the drift check without making the effect
+  // re-run (and re-seek) on every 10 Hz tick.
+  const elapsedRef = useRef(elapsedInItemMillis);
+  elapsedRef.current = elapsedInItemMillis;
+
   // A new occurrence is a fresh start: clear any previous load failure.
   useEffect(() => setFailed(false), [occurrenceKey, media?.id]);
 
@@ -33,16 +50,24 @@ export function MediaPlayer({ media, elapsedInItemMillis, occurrenceKey, muted =
     const video = videoRef.current;
     if (!video || media?.type !== 'video') return;
 
-    /** Seeks the element to where the cycle clock says we should be. */
+    /**
+     * Seeks the element to where the cycle clock says it should be.
+     *
+     * The tolerance is wide enough that ordinary playback is never interrupted;
+     * only a real stall trips it.
+     */
     const align = () => {
       const length = video.duration;
       if (!Number.isFinite(length) || length <= 0) return;
 
       // Videos shorter than their slot loop within it.
-      const target = (elapsedInItemMillis / 1000) % length;
-      if (Math.abs(video.currentTime - target) > 0.75) {
+      const target = (elapsedRef.current / 1000) % length;
+      const drift = Math.abs(video.currentTime - target);
+      // Near a loop boundary the two are close despite a large raw difference.
+      if (drift > DRIFT_TOLERANCE_SECONDS && length - drift > DRIFT_TOLERANCE_SECONDS) {
         video.currentTime = target;
       }
+      if (video.paused) video.play().catch(() => {});
     };
 
     if (video.readyState >= 1) align();
@@ -51,9 +76,24 @@ export function MediaPlayer({ media, elapsedInItemMillis, occurrenceKey, muted =
     // Autoplay can be refused; muted inline playback is normally allowed.
     video.play().catch(() => {});
 
-    return () => video.removeEventListener('loadedmetadata', align);
-    // Deliberately keyed on the occurrence, not on elapsed time: re-seeking on
-    // every tick would fight with normal playback.
+    const driftCheck = setInterval(align, DRIFT_CHECK_INTERVAL_MILLIS);
+
+    // A background tab has both its video and its timers throttled, so it can
+    // come back seconds behind. Re-align the moment it is visible again rather
+    // than waiting for the next interval.
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') align();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+
+    return () => {
+      clearInterval(driftCheck);
+      document.removeEventListener('visibilitychange', onVisible);
+      video.removeEventListener('loadedmetadata', align);
+    };
+    // Keyed on the occurrence, not on elapsed time: re-running this effect on
+    // every tick would re-seek constantly and fight normal playback. The
+    // current offset is read through elapsedRef instead.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [occurrenceKey, media?.id, media?.type]);
 

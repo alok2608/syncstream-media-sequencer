@@ -74,6 +74,9 @@ async function request(path, { method = 'GET', body, signal } = {}) {
   return payload?.data ?? null;
 }
 
+// Only the calls the UI actually makes are exposed. The full HTTP surface is
+// documented in the README; adding a wrapper here before something uses it
+// would just be dead code.
 export const api = {
   /** Full bootstrap state: windows with playlists, media library, live sync. */
   getState: (signal) => request('/api/state', { signal }),
@@ -81,10 +84,7 @@ export const api = {
   /** Server clock, used to estimate this browser's offset. */
   getTime: (signal) => request('/api/time', { signal }),
 
-  getWindows: (signal) => request('/api/windows', { signal }),
   createWindow: (name) => request('/api/windows', { method: 'POST', body: { name } }),
-
-  getPlaylist: (windowId, signal) => request(`/api/windows/${windowId}/playlist`, { signal }),
 
   /** Appends media to a playlist, either by id or by defining it inline. */
   addPlaylistItem: (windowId, payload) =>
@@ -96,12 +96,8 @@ export const api = {
   removePlaylistItem: (windowId, itemId) =>
     request(`/api/windows/${windowId}/playlist/${itemId}`, { method: 'DELETE' }),
 
-  getMedia: (signal) => request('/api/media', { signal }),
-  createMedia: (media) => request('/api/media', { method: 'POST', body: media }),
-
   startSync: (mediaId, durationSeconds) =>
     request('/api/sync', { method: 'POST', body: { mediaId, durationSeconds } }),
-  getActiveSync: (signal) => request('/api/sync/active', { signal }),
   cancelSync: () => request('/api/sync/cancel', { method: 'POST' }),
 };
 

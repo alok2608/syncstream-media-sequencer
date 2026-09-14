@@ -17,10 +17,11 @@ import { MediaPlayer } from './MediaPlayer.jsx';
  *   window: object,
  *   serverNowMillis: number,
  *   syncMedia: object|null,
+ *   syncElapsedMillis: number,
  *   isSyncActive: boolean,
  * }} props
  */
-export function WindowCard({ window, serverNowMillis, syncMedia, isSyncActive }) {
+export function WindowCard({ window, serverNowMillis, syncMedia, syncElapsedMillis, isSyncActive }) {
   // The timeline only changes when the playlist does.
   const timeline = useMemo(() => timelineFromPlaylist(window.playlist), [window.playlist]);
 
@@ -55,7 +56,9 @@ export function WindowCard({ window, serverNowMillis, syncMedia, isSyncActive })
       <div className="window-card__stage">
         <MediaPlayer
           media={displayed}
-          elapsedInItemMillis={isSyncActive ? 0 : (state?.elapsedInItemMillis ?? 0)}
+          // During a sync this is the offset into the override, which is shared
+          // by every client, so a synced video plays the same frame everywhere.
+          elapsedInItemMillis={isSyncActive ? syncElapsedMillis : (state?.elapsedInItemMillis ?? 0)}
           occurrenceKey={displayedKey}
         />
 

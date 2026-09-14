@@ -52,7 +52,7 @@ func (h *Hub) Run() {
 		case client := <-h.unregister:
 			if _, ok := h.clients[client]; ok {
 				delete(h.clients, client)
-				close(client.send)
+				client.close()
 			}
 
 		case message := <-h.broadcast:
@@ -64,7 +64,7 @@ func (h *Hub) Run() {
 					// letting one dead connection stall the broadcast.
 					h.logger.Warn("dropping unresponsive websocket client")
 					delete(h.clients, client)
-					close(client.send)
+					client.close()
 				}
 			}
 
@@ -74,7 +74,7 @@ func (h *Hub) Run() {
 		case <-h.done:
 			for client := range h.clients {
 				delete(h.clients, client)
-				close(client.send)
+				client.close()
 			}
 			return
 		}

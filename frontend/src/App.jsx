@@ -1,5 +1,3 @@
-import { useMemo } from 'react';
-
 import { PlaylistManager } from './components/PlaylistManager.jsx';
 import { StatusBar } from './components/StatusBar.jsx';
 import { SyncBanner } from './components/SyncBanner.jsx';
@@ -24,11 +22,17 @@ export default function App() {
   const clientNow = useNow(TICK_MILLIS);
   const serverNowMillis = toServerMillis(clientNow, clock.offsetMillis);
 
-  const sync = useMemo(
-    () => resolveSyncPhase(activeSync, serverNowMillis),
-    [activeSync, serverNowMillis],
-  );
+  // Recomputed every tick by design; serverNowMillis changes on each one, so
+  // memoising this would cache nothing.
+  const sync = resolveSyncPhase(activeSync, serverNowMillis);
   const syncOnScreen = isSyncOnScreen(sync.phase);
+
+  // How far into the override we are. Passing this down means a synced video
+  // seeks to the shared offset rather than restarting, so a client that joins
+  // or refreshes mid-sync shows the same frame as everyone else.
+  const syncElapsedMillis = activeSync
+    ? Math.max(0, serverNowMillis - new Date(activeSync.startAt).getTime())
+    : 0;
 
   const syncLabel =
     sync.phase === SYNC_PHASE.active
@@ -77,6 +81,7 @@ export default function App() {
           windows={windows}
           serverNowMillis={serverNowMillis}
           syncMedia={activeSync?.media ?? null}
+          syncElapsedMillis={syncElapsedMillis}
           isSyncActive={syncOnScreen}
           loading={loading}
           unreachable={!!error}

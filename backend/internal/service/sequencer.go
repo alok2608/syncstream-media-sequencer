@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"strings"
@@ -62,7 +63,8 @@ type Snapshot struct {
 	ActiveSync  *models.SyncEvent           `json:"activeSync"`
 }
 
-// Snapshot loads the bootstrap state in three queries.
+// Snapshot loads the bootstrap state in four queries: windows, all playlist
+// items, the media library and the live sync override.
 func (s *Sequencer) Snapshot(ctx context.Context) (Snapshot, error) {
 	windows, err := s.WindowsWithPlaylists(ctx)
 	if err != nil {
@@ -209,7 +211,7 @@ func (s *Sequencer) resolveMedia(ctx context.Context, in AddPlaylistItemInput) (
 	case in.MediaID != nil:
 		media, err := s.store.Media.Get(ctx, *in.MediaID)
 		if err != nil {
-			if err == models.ErrNotFound {
+			if errors.Is(err, models.ErrNotFound) {
 				return 0, invalid("mediaId", fmt.Sprintf("media %d does not exist", *in.MediaID))
 			}
 			return 0, err
