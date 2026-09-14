@@ -41,8 +41,8 @@ same instant without touching any playlist.
 | Component | URL |
 |---|---|
 | **Frontend** (Vercel) | **https://syncstream-media-sequencer.vercel.app** |
-| **Backend** (Render) | **https://syncstream-backend-ot21.onrender.com** |
-| Health check | https://syncstream-backend-ot21.onrender.com/health |
+| **Backend** (Render) | **https://syncstream-backend-lw2v.onrender.com** |
+| Health check | https://syncstream-backend-lw2v.onrender.com/health |
 | Source | https://github.com/alok2608/syncstream-media-sequencer |
 
 Open the frontend and three windows begin playing immediately. Press
@@ -1144,13 +1144,15 @@ migrations and seeding run themselves on boot.
 ### Verifying the live deployment yourself
 
 ```bash
-BACKEND=https://syncstream-backend-ot21.onrender.com
+BACKEND=https://syncstream-backend-lw2v.onrender.com
 
 # Health, window and media counts
 curl -s $BACKEND/health
 
-# The 5-hour cycle, observable without waiting five hours
-curl -s $BACKEND/api/windows/1/current | jq .data.state
+# The 5-hour cycle, observable without waiting five hours.
+# Window ids are resolved rather than hardcoded, because re-seeding advances them.
+WINDOW=$(curl -s $BACKEND/api/windows | jq '.data[0].id')
+curl -s $BACKEND/api/windows/$WINDOW/current | jq .data.state
 
 # Trigger a global sync across every window (watch the frontend as you run it)
 MEDIA=$(curl -s $BACKEND/api/media | jq '.data[] | select(.name | startswith("M2")) | .id')
